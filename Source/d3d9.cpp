@@ -101,6 +101,7 @@ void Initialize() {
             if (y < MAX_PATH)
             {
                 wcsncpy(d3dpath, &argv[i][x], y);
+                d3dpath[y] = 0;
                 if (wcslen(d3dpath)) {
                     exist = _wfopen(d3dpath, L"r");
                     if (exist) {
