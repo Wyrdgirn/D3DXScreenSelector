@@ -71,8 +71,8 @@ For example:
 # Acknowledgements
 
 - [shaunlebron](https://gist.github.com/shaunlebron/3854bf4eec5bec297907) for the d3d9 wrapper code.
-- [Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=6812) for the Direct3D9 API.
-- [Microsoft Copilot](https://www.microsoft.com/en-us/microsoft-365/copilot) for help me with the GetMainWindowHandle and MoveWindowToSecondaryScreen functions... and this Readme :P.
+- [Microsoft](https://www.microsoft.com) for the Direct3D9 API, Copilot, Windows OS, and Visual Studio.
+- [GitHub and OpenAI](https://github.com/features/copilot) for the Github Copilot.
 
 # License
 
