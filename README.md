@@ -17,8 +17,10 @@ Games tested:
 - Need for Speed Most Wanted (2005)
 - Silent Hill 3 with enb d3d8to9 convertor
 - Halo 1
+- Blades of Time. You can use sweetfx by loading it with the `--d3d9path` argument.
+- Resident Evil 4 (2007)
 
-This doesn't work with modern d3d9 games like:
+This doesn't work with other d3d9 games like:
 - Castlevania Lords of Shadow 2
 - Castlevania Lords of Shadow Mirror of Fate
 - Dead or Alive 5 Last Round
@@ -29,7 +31,7 @@ This doesn't work with modern d3d9 games like:
 
 Just put the `d3d9.dll` file in the same folder as the game executable.
 
-This library uses the `d3d9.dll` original from the system folder. you can change the path using the argument ` --d3d9path`
+This library uses the `d3d9.dll` original from the system folder. you can change the path using the argument ` --d3d9path`. some wrappers may work together, you can use this argument to set the path to that library, example: ` --d3d9path=d3d9_sweetfx.dll`. Not all wrappers are guaranteed to work with this library.
 
 # Compilation
 
@@ -43,7 +45,7 @@ Make a shortcut to the game executable and add the following arguments (only wha
 --screen=<screen number>
 --swapmode=<swap effect> (can be copy, flip, discard, and overlay)
 --d3ddoublebuffer for a double backbuffer or --d3dtriplebuffer for a triple backbuffer
---d3d9path=<path to d3d9.dll>
+--d3d9path=<path to other d3d9.dll libraries or wrappers>
 ```
 
 For example:
@@ -54,13 +56,14 @@ For example:
 
 # Notes
 
-- This library are not designed to work together with other wrappers, you can try setting the path to other wrappers using the `--d3d9path` argument , but I don't guarantee it will work!
+- This library are not designed to work together with other wrappers, but it may work for some.
+- When using with other libraries, use this as the main one, load other libraries with the `--d3d9path` argument, otherwise it may not work as expected.
 - If you set the arguments more than once, the last one will be used. For example, if you set `--screen=1` and then `--screen=2`, the screen will be set to 2.
 - The swap effect is not set by default, it uses the selected swap effect from the game.
 - The backbuffer is not set by default, it uses the selected backbuffer from the game.
 - The screen is not set by default, it uses the selected screen from the game. If you select a screen that is not available, it will use the default screen from the game.
 - If you use the double or triple backbuffer, some swap effects can crash the game. Change --swapmode until you find one that works.
-- This wrapper have problems with the Window of the game. The Window remains on the main screen and the game is displayed on the selected screen. This is a problem with the Direct3D9 API. Soon I will try hooking the CreateWindow and CreateWindowEx functions to try to make the window directly from the wrapper. If you know a better way to fix it, please let me know.
+- This wrapper have problems with the Window of the game. The Window remains on the main screen and the game is displayed on the selected screen. Soon I will try hooking the CreateWindow and CreateWindowEx functions to try to make the window directly from the wrapper. I don't know if it works but it doesn't hurt to try. If you know a better way to fix it, please let me know.
 - This have functions to set the screen position that are made using AI support, but I don't know if they work, the window remains on the main screen, I just leave it just in case. I try other methods but they don't work. I will try to fix it in the future.
 - This library is not perfect, it is a work in progress. If you find any bugs or have any suggestions, please let me know.
 - Maybe (and just maybe) I port this to Direct3D8, but I prefer to wait to fix this library first.
