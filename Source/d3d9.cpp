@@ -2,23 +2,44 @@
 #include <iostream>
 #include <mmc.h>
 
-UINT screendevice = 0, adaptercount = 0, BBufferCount = 0, SwapMode = 0;
+UINT screendevice = 0, deviceCount = 0, BBufferCount = 0, SwapMode = 0;
 int d3dadapter = -1;
 wchar_t d3dpath[MAX_PATH];
 POINTL screenpos = {};
-RECT rect;
-bool usedllpath = false;
+RECT MonitorRect;
+bool usedllpath = false, getWndRect = false;
+WCHAR DeviceName[32] = { 0 };
+HWND MainWindow;
+wchar_t logbuff[256];
 
-// Function to enumerate and print available monitors
-UINT GetAdapter(UINT Adapter)
+//UINT GetAdapter(UINT Adapter)
+//{
+//    UINT adapter = screendevice;
+//    if (screendevice >= deviceCount) adapter = Adapter;
+//    return adapter;
+//}
+
+static BOOL CALLBACK ScreenInfoCallback(HMONITOR hMonitor, HDC Hdc, LPRECT Rect, LPARAM LParam)
 {
-    UINT adapter = Adapter;
-    if (screendevice > 0) adapter = screendevice;
-    return adapter;
+    static int monitorIndex = 0;
+    MONITORINFOEX mi;
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfo(hMonitor, &mi))
+    {
+        if (!wcsncmp(mi.szDevice, DeviceName, wcslen(DeviceName)))
+        {
+            MonitorRect = mi.rcMonitor;
+            getWndRect = true;
+            return FALSE;
+        }
+        return TRUE;
+    }
+    monitorIndex++;
+    return FALSE;
 }
 
 // Function to get the main window handle from a DLL
-HWND GetMainWindowHandle(HINSTANCE hInstance) {
+static HWND GetMainWindowHandle(HINSTANCE hInstance) {
     HWND hwnd = NULL;
     EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL {
         DWORD processId;
@@ -33,14 +54,17 @@ HWND GetMainWindowHandle(HINSTANCE hInstance) {
 }
 
 // Function to move a window and its child windows to a secondary screen
-void MoveWindowToSecondaryScreen(HWND hWnd) {
+static void MoveWindowToSecondaryScreen(HWND hWnd, UINT Screen) {
     // Get the handle to the secondary monitor
-    HMONITOR hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi = { sizeof(mi) };
-    if (GetMonitorInfo(hMonitor, &mi)) {
+    DISPLAY_DEVICE dd;
+    dd.cb = sizeof(dd);
+    EnumDisplayDevices(NULL, Screen, &dd, 0);
+    wcsncpy(DeviceName, dd.DeviceName, wcslen(dd.DeviceName));
+    EnumDisplayMonitors(NULL, NULL, ScreenInfoCallback, 0);
+    if (getWndRect) {
         // Calculate the new position for the window
-        int newX = mi.rcMonitor.left;
-        int newY = mi.rcMonitor.top;
+        int newX = MonitorRect.left;
+        int newY = MonitorRect.top;
 
         // Move the parent window
         SetWindowPos(hWnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -51,21 +75,18 @@ void MoveWindowToSecondaryScreen(HWND hWnd) {
             SetWindowPos(hChild, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
             hChild = GetWindow(hChild, GW_HWNDNEXT);
         }
+        MessageBox(NULL, L"Moved", L"Status", 0);
     }
 }
 
-void Initialize() {
+static void Initialize() {
+    wchar_t *swapmode = 0;
+    FILE* exist;
     DISPLAY_DEVICE dd;
     dd.cb = sizeof(dd);
-    int deviceIndex = 0;
-    wchar_t *swapmode = 0;
-    wchar_t logbuff[256];
-    FILE* exist;
     
-    while (EnumDisplayDevices(NULL, deviceIndex, &dd, 0))
-        deviceIndex++;
+    int argc = 0, scanfResult = 0;
 
-    int argc = 0, scrdevice = 0;
     LPWSTR * argv = CommandLineToArgvW(GetCommandLine(), &argc);
     ZeroMemory(d3dpath, MAX_PATH);
 
@@ -73,9 +94,11 @@ void Initialize() {
     {
         if (!wcsncmp(argv[i], L"--screen=", 9))
         {
-            swscanf_s(argv[i], L"--screen=%d", &scrdevice);
-            if (scrdevice < 0 || scrdevice > (deviceIndex - 1)) screendevice = 0;
-            else screendevice = scrdevice;
+            if (swscanf_s(argv[i], L"--screen=%u", &scanfResult) > 0) {
+                if (scanfResult < 0 || scanfResult >(int)(deviceCount - 1)) screendevice = 0;
+                else screendevice = scanfResult;
+            }
+            else MessageBox(NULL, L"Error: Invalid Screen ID.", L"D3DXScreenSelector", 0);
         }
         if (!wcsncmp(argv[i], L"--d3ddoublebuffer", 18))
         {
@@ -84,6 +107,12 @@ void Initialize() {
         else if (!wcsncmp(argv[i], L"--d3dtriplebuffer", 18))
         {
             BBufferCount = 3;
+        }
+        else if (!wcsncmp(argv[i], L"--d3dbuffercount=", 17))
+        {
+            if(swscanf_s(argv[i], L"--d3dbuffercount=%u", &scanfResult) > 0)
+                BBufferCount = scanfResult;
+            else MessageBox(NULL, L"Error: Invalid Backbuffer count.", L"D3DXScreenSelector", 0);
         }
         if (!wcsncmp(argv[i], L"--swapmode=", 11))
         {
@@ -110,12 +139,12 @@ void Initialize() {
                     }
                     else
                     {
-                        wsprintf(logbuff, L"Incorrect D3D Library path:\n%ls\n\nUsing system default.", d3dpath);
-                        MessageBox(NULL, logbuff, L"Error:", 0);
+                        wsprintf(logbuff, L"Error: Incorrect D3D Library path:\n%ls\n\nUsing system default.", d3dpath);
+                        MessageBox(NULL, logbuff, L"D3DXScreenSelector", 0);
                     }
                 }
             }
-            else MessageBoxA(NULL, "D3D Library path too long.\nThe original in the system folder will be used.", "Error:", 0);
+            else MessageBox(NULL, L"Error: D3D Library path too long.\nThe original in the system folder will be used.", L"D3DXScreenSelector", 0);
         }
     }
 }
@@ -125,21 +154,19 @@ IDirect3D9 *WINAPI f_Direct3DCreate9(UINT SDKVersion)
    return new f_iD3D9(orig_Direct3DCreate9(SDKVersion));
 }
 bool WINAPI DllMain(HMODULE hModule, DWORD fdwReason, LPVOID lpReserved) {
-    DEVMODE scrmode = {};
+    DISPLAY_DEVICE dd;
+    dd.cb = sizeof(dd);
     switch(fdwReason) 
     {
         case DLL_PROCESS_ATTACH:
 
-            scrmode.dmSize = sizeof(DEVMODE);
-            if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &scrmode))
-            {
-                HWND MainWindow = GetMainWindowHandle(hModule);
-                HWND hWnd = GetParent(MainWindow);
-                if (hWnd) MainWindow = hWnd;
-                if (MainWindow) MoveWindowToSecondaryScreen(MainWindow);
+            while (EnumDisplayDevicesW(NULL, deviceCount, &dd, 0)) {
+                if (!(dd.StateFlags & DISPLAY_DEVICE_ACTIVE)) break;
+                deviceCount++;
             }
 
             Initialize();
+
             if (!usedllpath)
             {
                 GetSystemDirectory(d3dpath, MAX_PATH);
@@ -176,8 +203,16 @@ HRESULT f_iD3D9::CreateDevice(UINT Adapter, D3DDEVTYPE DeviceType,
    if(BBufferCount > 0)
        pPresentationParameters->BackBufferCount = BBufferCount;
 
-   //pPresentationParameters->Windowed = TRUE;
-   HRESULT hr = f_pD3D->CreateDevice(GetAdapter(Adapter), DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, ppReturnedDeviceInterface);
+   if (screendevice > 0) {
+        HMODULE appInstance = GetModuleHandle(NULL);
+        MainWindow = GetMainWindowHandle(appInstance);
+        //HWND hWnd = NULL;
+        //if (MainWindow) hWnd = GetParent(MainWindow);
+        ///if (hWnd) MainWindow = hWnd;
+        if (MainWindow) MoveWindowToSecondaryScreen(MainWindow, screendevice);
+   }
+
+   HRESULT hr = f_pD3D->CreateDevice(screendevice, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, ppReturnedDeviceInterface);
 
    // NOTE: initialize your custom D3D components here.
 
@@ -211,7 +246,7 @@ ULONG f_iD3D9::AddRef()
    return f_pD3D->AddRef();
 }
 
-HRESULT f_iD3D9::QueryInterface(REFIID riid, LPVOID *ppvObj) 
+HRESULT f_iD3D9::QueryInterface(REFIID riid, void** ppvObj) 
 {
    return f_pD3D->QueryInterface(riid, ppvObj);
 }
@@ -223,7 +258,7 @@ ULONG f_iD3D9::Release()
 
 HRESULT f_iD3D9::EnumAdapterModes(THIS_ UINT Adapter,D3DFORMAT Format,UINT Mode,D3DDISPLAYMODE* pMode) 
 {
-   return f_pD3D->EnumAdapterModes(GetAdapter(Adapter), Format,Mode, pMode);
+   return f_pD3D->EnumAdapterModes(screendevice, Format,Mode, pMode);
 }
 
 UINT f_iD3D9::GetAdapterCount() 
@@ -233,27 +268,27 @@ UINT f_iD3D9::GetAdapterCount()
 
 HRESULT f_iD3D9::GetAdapterDisplayMode(UINT Adapter, D3DDISPLAYMODE *pMode) 
 {
-   return f_pD3D->GetAdapterDisplayMode(GetAdapter(Adapter), pMode);
+   return f_pD3D->GetAdapterDisplayMode(screendevice, pMode);
 }
 
 HRESULT f_iD3D9::GetAdapterIdentifier(UINT Adapter, DWORD Flags, D3DADAPTER_IDENTIFIER9 *pIdentifier)
 {
-   return f_pD3D->GetAdapterIdentifier(GetAdapter(Adapter), Flags, pIdentifier);
+   return f_pD3D->GetAdapterIdentifier(screendevice, Flags, pIdentifier);
 }
 
 UINT f_iD3D9::GetAdapterModeCount(THIS_ UINT Adapter,D3DFORMAT Format) 
 {
-   return f_pD3D->GetAdapterModeCount(GetAdapter(Adapter),Format);
+   return f_pD3D->GetAdapterModeCount(screendevice,Format);
 }
 
 HMONITOR f_iD3D9::GetAdapterMonitor(UINT Adapter) 
 {
-   return f_pD3D->GetAdapterMonitor(GetAdapter(Adapter));
+   return f_pD3D->GetAdapterMonitor(screendevice);
 }
 
 HRESULT f_iD3D9::GetDeviceCaps(UINT Adapter, D3DDEVTYPE DeviceType, D3DCAPS9 *pCaps)
 {
-   return f_pD3D->GetDeviceCaps(GetAdapter(Adapter), DeviceType, pCaps);
+   return f_pD3D->GetDeviceCaps(screendevice, DeviceType, pCaps);
 }
 
 HRESULT f_iD3D9::RegisterSoftwareDevice(void *pInitializeFunction) 
@@ -263,28 +298,28 @@ HRESULT f_iD3D9::RegisterSoftwareDevice(void *pInitializeFunction)
 
 HRESULT f_iD3D9::CheckDepthStencilMatch(UINT Adapter, D3DDEVTYPE DeviceType, D3DFORMAT AdapterFormat, D3DFORMAT RenderTargetFormat, D3DFORMAT DepthStencilFormat) 
 {   
-   return f_pD3D->CheckDepthStencilMatch(GetAdapter(Adapter), DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
+   return f_pD3D->CheckDepthStencilMatch(screendevice, DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
 }
 
 HRESULT f_iD3D9::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, D3DFORMAT AdapterFormat, DWORD Usage, D3DRESOURCETYPE RType, D3DFORMAT CheckFormat) 
 {
-   return f_pD3D->CheckDeviceFormat(GetAdapter(Adapter), DeviceType, AdapterFormat, Usage, RType, CheckFormat);
+   return f_pD3D->CheckDeviceFormat(screendevice, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
 }
 
 HRESULT f_iD3D9::CheckDeviceMultiSampleType(THIS_ UINT Adapter,D3DDEVTYPE DeviceType,D3DFORMAT SurfaceFormat,BOOL Windowed,D3DMULTISAMPLE_TYPE MultiSampleType,DWORD* pQualityLevels) 
 {
-   return f_pD3D->CheckDeviceMultiSampleType(GetAdapter(Adapter), DeviceType, SurfaceFormat, Windowed, MultiSampleType,pQualityLevels);
+   return f_pD3D->CheckDeviceMultiSampleType(screendevice, DeviceType, SurfaceFormat, Windowed, MultiSampleType,pQualityLevels);
 }
 
 HRESULT f_iD3D9::CheckDeviceType(UINT Adapter, D3DDEVTYPE CheckType, D3DFORMAT DisplayFormat, D3DFORMAT BackBufferFormat, BOOL Windowed) 
 {
-   return f_pD3D->CheckDeviceType(GetAdapter(Adapter), CheckType, DisplayFormat, BackBufferFormat, Windowed);
+   return f_pD3D->CheckDeviceType(screendevice, CheckType, DisplayFormat, BackBufferFormat, Windowed);
 }
 
 
 HRESULT f_iD3D9::CheckDeviceFormatConversion(THIS_ UINT Adapter,D3DDEVTYPE DeviceType,D3DFORMAT SourceFormat,D3DFORMAT TargetFormat) 
 {
-   return f_pD3D->CheckDeviceFormatConversion(GetAdapter(Adapter),DeviceType,SourceFormat,TargetFormat);
+   return f_pD3D->CheckDeviceFormatConversion(screendevice,DeviceType,SourceFormat,TargetFormat);
 }
 
 /*************************
