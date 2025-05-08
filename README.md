@@ -6,7 +6,7 @@ Enable the use of the --screen argument on some fullscreen apps and games. Allow
 
 The Direct3D9 Wrapper library is based on the [Gist by shaunlebron](https://gist.github.com/shaunlebron/3854bf4eec5bec297907).
 
-This, in addition, allows you to set the swap effect with` --swapmode` and the number of backbuffers with` --d3ddoublebuffer` and` --d3dtriplebuffer` too.
+This, in addition, allows you to set the swap effect with` --swapmode` and the number of backbuffers with` --d3dbuffercount`, ` --d3ddoublebuffer` and` --d3dtriplebuffer` (See [Usage](#usage) section for more info). Sorry, I don't know if it affects the game's performance (or the game itself) or not, I only know that changing the backbuffer crashes it with some --swapmode modes ^^;
 
 Only works with some fullscreen apps and games that use Direct3D9.
 
@@ -44,14 +44,18 @@ Make a shortcut to the game executable and add the following arguments (only wha
 ```
 --screen=<screen number>
 --swapmode=<swap effect> (can be copy, flip, discard, and overlay)
---d3ddoublebuffer for a double backbuffer or --d3dtriplebuffer for a triple backbuffer
+--d3ddoublebuffer for a double backbuffer or --d3dtriplebuffer for a triple backbuffer, or
+        --d3dbuffercount=<backbuffer count> to set the number of backbuffers manually
 --d3d9path=<path to other d3d9.dll libraries or wrappers>
 ```
 
 For example:
 
 ```
-"C:\Program Files (x86)\Konami\Silent Hill 2\sh2pc.exe" --screen=1 --swapmode=copy --d3ddoublebuffer --d3d9path="C:\Program Files (x86)\Konami\Silent Hill 2\d3d9_orig.dll"
+"c:\path\to\your\game.exe" --screen=1 --swapmode=copy --d3ddoublebuffer --d3d9path=d3d9_sweetfx.dll
+```
+```
+"c:\path\to\your\game.exe" --screen=1 --d3dbuffercount=2 --d3d9path="C:\Path to\some\d3d9_library.dll"
 ```
 
 # Notes
