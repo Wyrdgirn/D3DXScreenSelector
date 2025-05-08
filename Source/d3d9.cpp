@@ -7,7 +7,7 @@ int d3dadapter = -1;
 wchar_t d3dpath[MAX_PATH];
 POINTL screenpos = {};
 RECT MonitorRect;
-bool usedllpath = false, getWndRect = false;
+bool usedllpath = false;
 WCHAR DeviceName[32] = { 0 };
 HWND MainWindow;
 wchar_t logbuff[256];
@@ -18,25 +18,6 @@ wchar_t logbuff[256];
 //    if (screendevice >= deviceCount) adapter = Adapter;
 //    return adapter;
 //}
-
-static BOOL CALLBACK ScreenInfoCallback(HMONITOR hMonitor, HDC Hdc, LPRECT Rect, LPARAM LParam)
-{
-    static int monitorIndex = 0;
-    MONITORINFOEX mi;
-    mi.cbSize = sizeof(mi);
-    if (GetMonitorInfo(hMonitor, &mi))
-    {
-        if (!wcsncmp(mi.szDevice, DeviceName, wcslen(DeviceName)))
-        {
-            MonitorRect = mi.rcMonitor;
-            getWndRect = true;
-            return FALSE;
-        }
-        return TRUE;
-    }
-    monitorIndex++;
-    return FALSE;
-}
 
 // Function to get the main window handle from a DLL
 static HWND GetMainWindowHandle(HINSTANCE hInstance) {
@@ -49,7 +30,7 @@ static HWND GetMainWindowHandle(HINSTANCE hInstance) {
             return FALSE; // Stop enumerating windows
         }
         return TRUE; // Continue enumerating windows
-        }, (LPARAM)&hwnd);
+    }, (LPARAM)&hwnd);
     return hwnd;
 }
 
@@ -58,9 +39,28 @@ static void MoveWindowToSecondaryScreen(HWND hWnd, UINT Screen) {
     // Get the handle to the secondary monitor
     DISPLAY_DEVICE dd;
     dd.cb = sizeof(dd);
+    static int monitorIndex = 0;
+    static BOOL getWndRect = false;
     EnumDisplayDevices(NULL, Screen, &dd, 0);
     wcsncpy(DeviceName, dd.DeviceName, wcslen(dd.DeviceName));
-    EnumDisplayMonitors(NULL, NULL, ScreenInfoCallback, 0);
+
+    EnumDisplayMonitors(NULL, NULL, [](HMONITOR hMonitor, HDC Hdc, LPRECT Rect, LPARAM LParam) -> BOOL {
+        MONITORINFOEX mi;
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfo(hMonitor, &mi))
+        {
+            if (!wcsncmp(mi.szDevice, DeviceName, wcslen(DeviceName)))
+            {
+                MonitorRect = mi.rcMonitor;
+                getWndRect = true;
+                return FALSE;
+            }
+            return TRUE;
+        }
+        monitorIndex++;
+        return FALSE;
+        }, 0);
+
     if (getWndRect) {
         // Calculate the new position for the window
         int newX = MonitorRect.left;
@@ -75,7 +75,6 @@ static void MoveWindowToSecondaryScreen(HWND hWnd, UINT Screen) {
             SetWindowPos(hChild, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
             hChild = GetWindow(hChild, GW_HWNDNEXT);
         }
-        MessageBox(NULL, L"Moved", L"Status", 0);
     }
 }
 
