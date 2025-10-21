@@ -8,7 +8,7 @@ The Direct3D9 Wrapper library is based on the [Gist by shaunlebron](https://gist
 
 This, in addition, allows you to set the swap effect with` --swapmode` and the number of backbuffers with` --d3dbuffercount`, ` --d3ddoublebuffer` and` --d3dtriplebuffer` (See [Usage](#usage) section for more info). Sorry, I don't know if it affects the game's performance (or the game itself) or not, I only know that changing the backbuffer crashes it with some --swapmode modes ^^;
 
-Only works with some fullscreen apps and games that use Direct3D9.
+Only works with Direct3D9 fullscreen apps and games. Doesn't work with Direct3D9Ex games for now, that's a WIP...
 
 Games tested:
 
@@ -19,13 +19,6 @@ Games tested:
 - Halo 1
 - Blades of Time. You can use sweetfx by loading it with the `--d3d9path` argument.
 - Resident Evil 4 (2007)
-
-This doesn't work with other d3d9 games like:
-- Castlevania Lords of Shadow 2
-- Castlevania Lords of Shadow Mirror of Fate
-- Dead or Alive 5 Last Round
-- Dragon Ball Xenoverse
-- Halo 2 (I don't know if it uses d3d9 anyway -.-;)
 
 # Installation
 
@@ -67,7 +60,7 @@ For example:
 - The backbuffer is not set by default, it uses the selected backbuffer from the game.
 - The screen is not set by default, it uses the selected screen from the game. If you select a screen that is not available, it will use the default screen from the game.
 - If you use the double or triple backbuffer, some swap effects can crash the game. Change --swapmode until you find one that works.
-- This wrapper have problems with the Window of the game. The Window remains on the main screen and the game is displayed on the selected screen. Soon I will try hooking the CreateWindow and CreateWindowEx functions to try to make the window directly from the wrapper. I don't know if it works but it doesn't hurt to try. If you know a better way to fix it, please let me know.
+- Some games leave the window on the main screen while running on the secondary screen.
 - This have functions to set the screen position that are made using AI support, but I don't know if they work, the window remains on the main screen, I just leave it just in case. I try other methods but they don't work. I will try to fix it in the future.
 - This library is not perfect, it is a work in progress. If you find any bugs or have any suggestions, please let me know.
 - Maybe (and just maybe) I port this to Direct3D8, but I prefer to wait to fix this library first.
